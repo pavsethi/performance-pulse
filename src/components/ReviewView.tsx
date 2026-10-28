@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { parseSections, streamReview, writerStatus } from '../agents/claude'
+import { parseReview, streamReview, writerStatus } from '../agents/claude'
 import type { WriterStatus } from '../agents/claude'
-import { composeReview, mineRamble, reviewToMarkdown } from '../agents/writer'
+import { composeReview, mineRamble } from '../agents/writer'
 import type { Signal } from '../data/types'
 import { REVIEWEE } from '../data/mock'
 
@@ -54,7 +54,7 @@ export default function ReviewView({
   const abort = useRef<AbortController | null>(null)
 
   const insights = useMemo(() => mineRamble(transcript), [transcript])
-  const sections = useMemo(() => parseSections(draft), [draft])
+  const review = useMemo(() => parseReview(draft), [draft])
 
   useEffect(() => {
     void writerStatus().then(setStatus)
@@ -89,7 +89,7 @@ export default function ReviewView({
 
     timers.current.push(
       window.setTimeout(() => {
-        const markdown = reviewToMarkdown(composeReview(signals, insights))
+        const markdown = composeReview(signals, insights)
         setPhase('writing')
         let i = 0
         const tick = () => {
@@ -244,23 +244,17 @@ export default function ReviewView({
       </div>
 
       <div className="doc">
-        {sections.map((s, i) => (
-          <section key={i}>
-            <h3>{s.heading}</h3>
-            {s.body
-              .split('\n\n')
-              .filter(Boolean)
-              .map((p, j) => (
-                <p key={j}>
-                  <RichText text={p.trim()} />
-                </p>
-              ))}
-            {s.evidence.length > 0 && (
-              <div className="cite">drawn from {s.evidence.join(', ')}</div>
-            )}
-          </section>
+        {review.paragraphs.map((p, i) => (
+          <p key={i}>
+            <RichText text={p} />
+          </p>
         ))}
         {working && <span className="caret" />}
+        {!working && review.evidence.length > 0 && (
+          <div className="cite">
+            drawn from {review.evidence.length} signals — {review.evidence.join(', ')}
+          </div>
+        )}
       </div>
     </div>
   )

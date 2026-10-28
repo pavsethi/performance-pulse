@@ -53,8 +53,14 @@ To have Claude write the review instead:
 ```bash
 cp .env.example .env   # then add your key
 npm run check:claude   # confirms the key works before you need it
+npm run dry-run        # writes a full review in the terminal, no browser
 npm run dev
 ```
+
+If your machine has `ANTHROPIC_BASE_URL` pinned to a corporate gateway, the SDK
+would pick that up silently and the gateway will reject a personal `sk-ant-`
+key with a 403. The app ignores it and calls `https://api.anthropic.com`;
+override with `PULSE_BASE_URL` if you need the gateway.
 
 The key is read by the Vite dev server and the model call runs in Node, so it
 never enters the client bundle — the browser only talks to `/api/review`, which
@@ -65,10 +71,12 @@ Model defaults to `claude-opus-5-5` at `high` effort; override with
 console while it works, then the draft streams in underneath.
 
 The prompt ([`server/prompt.ts`](server/prompt.ts)) hands Claude the goals, the
-full evidence record and the transcript, and requires that every claim be
-traceable — each section ends with the signal ids it drew on, rendered as a
-footnote. If the call fails for any reason, the app falls back to the local
-template writer and tells you why rather than dying on stage.
+full evidence record and the transcript, and asks for three paragraphs: what
+you delivered, how you worked, and where you fell short. Every claim has to be
+traceable, so the draft ends with the signal ids it drew on. If the call fails
+for any reason, the app falls back to the local template writer — which writes
+the same three paragraphs from the same evidence — and tells you why rather
+than dying on stage.
 
 - **Pulse** — the live evidence timeline, the sub-agents working, goal coverage
 - **Ramble** — record or paste; watch statements get mapped to goals in real time

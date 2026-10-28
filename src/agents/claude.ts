@@ -90,35 +90,32 @@ export async function streamReview(
   }
 }
 
-export interface ParsedSection {
-  heading: string
-  body: string
+export interface ParsedReview {
+  paragraphs: string[]
   evidence: string[]
 }
 
 /**
- * Parses the streaming markdown into sections as it arrives, so a half-written
- * draft still renders cleanly.
+ * Parses the review as it streams, so a half-written draft still renders
+ * cleanly: three paragraphs and a trailing evidence line.
  */
-export function parseSections(markdown: string): ParsedSection[] {
-  return markdown
-    .split(/^## /m)
-    .map((chunk) => chunk.trim())
+export function parseReview(markdown: string): ParsedReview {
+  let body = markdown.trim()
+  let evidence: string[] = []
+
+  const match = body.match(/_evidence:\s*([^_]*)_?\s*$/)
+  if (match) {
+    evidence = match[1]
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    body = body.slice(0, match.index).trim()
+  }
+
+  const paragraphs = body
+    .split(/\n{2,}/)
+    .map((p) => p.replace(/\s+/g, ' ').trim())
     .filter(Boolean)
-    .map((chunk) => {
-      const [heading, ...rest] = chunk.split('\n')
-      let body = rest.join('\n').trim()
-      let evidence: string[] = []
 
-      const match = body.match(/_evidence:\s*([^_]+)_\s*$/)
-      if (match) {
-        evidence = match[1]
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
-        body = body.slice(0, match.index).trim()
-      }
-
-      return { heading: heading.trim(), body, evidence }
-    })
+  return { paragraphs, evidence }
 }

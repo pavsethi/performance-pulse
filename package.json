@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "check:claude": "node scripts/check-claude.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dry-run": "node --experimental-strip-types scripts/dry-run-review.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

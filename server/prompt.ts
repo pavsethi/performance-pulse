@@ -26,18 +26,19 @@ Hard rules, in order of importance:
 
 Where the spoken transcript and the systems of record cover the same work, prefer the transcript for *why* it mattered and the evidence record for *what* happened and what it measured.
 
-Output format — markdown, exactly these sections in this order:
+Output format — exactly three paragraphs, separated by a blank line, with no headings:
 
-## Summary
-## <goal id> · <goal title>     (one section per goal, in the order given)
-## Where I fell short
-## Looking ahead
+1. What you delivered and what it measured. Lead with the strongest evidence, not the earliest.
+2. How you worked: the people you grew, the reach you had beyond your own team, and what peers said about you, quoted.
+3. Where you fell short, in your own framing, and the one thing you are changing next year.
 
-End every section that draws on specific evidence with a final line in exactly this form, listing the signal ids you actually used in that section:
+Four or five sentences per paragraph. This is the whole review — it has to survive being read in ninety seconds, so every sentence earns its place and nothing is restated.
+
+After the three paragraphs, one final line on its own, listing every signal id you drew on:
 
 _evidence: s03, s16, r1_
 
-Use **bold** only to mark the single most important claim in a section. No other markdown — no headings beyond the ## above, no bullets, no tables, no code blocks.`
+Use **bold** exactly once in the entire review, on the single number that matters most. No other markdown — no headings, bullets, tables or code blocks.`
 
 export function buildUserMessage(p: ReviewPayload): string {
   return [

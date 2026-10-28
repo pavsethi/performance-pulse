@@ -6,14 +6,24 @@ import 'dotenv/config'
 import Anthropic from '@anthropic-ai/sdk'
 
 const MODEL = process.env.PULSE_MODEL ?? 'claude-opus-5-5'
+const BASE_URL = process.env.PULSE_BASE_URL ?? 'https://api.anthropic.com'
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error('✗ ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key.')
   process.exit(1)
 }
 
+if (process.env.ANTHROPIC_BASE_URL && process.env.ANTHROPIC_BASE_URL !== BASE_URL) {
+  console.log(`  note: ignoring ANTHROPIC_BASE_URL=${process.env.ANTHROPIC_BASE_URL}`)
+}
+console.log(`  calling ${BASE_URL} as ${MODEL}`)
+
 try {
-  const res = await new Anthropic().messages.create({
+  const client = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    baseURL: BASE_URL,
+  })
+  const res = await client.messages.create({
     model: MODEL,
     max_tokens: 64,
     output_config: { effort: 'low' },

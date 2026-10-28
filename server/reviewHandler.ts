@@ -8,6 +8,13 @@ import type { ReviewPayload } from './prompt'
  * the browser bundle. The client talks to /api/review over SSE.
  */
 
+/**
+ * Managed machines often pin ANTHROPIC_BASE_URL to a corporate gateway, which
+ * the SDK would pick up silently and then reject a personal sk-ant- key with a
+ * 403. Target the real API unless PULSE_BASE_URL says otherwise.
+ */
+const BASE_URL = process.env.PULSE_BASE_URL ?? 'https://api.anthropic.com'
+
 const MODEL = process.env.PULSE_MODEL ?? 'claude-opus-5-5'
 const EFFORT = (process.env.PULSE_EFFORT ?? 'high') as
   | 'low'
@@ -56,7 +63,12 @@ export async function handleReview(req: IncomingMessage, res: ServerResponse) {
   const send = (data: unknown) => res.write(`data: ${JSON.stringify(data)}\n\n`)
 
   try {
-    const client = new Anthropic()
+    // Pass both explicitly so an ambient ANTHROPIC_BASE_URL or
+    // ANTHROPIC_AUTH_TOKEN cannot redirect or shadow the key in .env.
+    const client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      baseURL: BASE_URL,
+    })
 
     // Opus 5.5 thinks adaptively by default; `summarized` lets the UI show the
     // writer reasoning instead of a dead pause before the first token.
@@ -94,16 +106,22 @@ export async function handleReview(req: IncomingMessage, res: ServerResponse) {
       })
     }
   } catch (err) {
+    // Name the endpoint on anything network- or auth-shaped: the usual cause
+    // is a corporate gateway in ANTHROPIC_BASE_URL, not a bad key.
     const message =
       err instanceof Anthropic.AuthenticationError
-        ? 'Invalid API key — check ANTHROPIC_API_KEY in .env'
-        : err instanceof Anthropic.RateLimitError
-          ? 'Rate limited. Try again in a moment.'
-          : err instanceof Anthropic.APIError
-            ? `API error ${err.status}: ${err.message}`
-            : err instanceof Error
-              ? err.message
-              : 'Unknown error'
+        ? `Key rejected by ${BASE_URL} — check ANTHROPIC_API_KEY, or set PULSE_BASE_URL if this endpoint needs a different credential`
+        : err instanceof Anthropic.PermissionDeniedError
+          ? `${BASE_URL} refused the request (403). If that is a corporate gateway it likely wants a bearer token rather than an sk-ant- key.`
+          : err instanceof Anthropic.RateLimitError
+            ? 'Rate limited. Try again in a moment.'
+            : err instanceof Anthropic.APIConnectionError
+              ? `Could not reach ${BASE_URL}. Check the network, or PULSE_BASE_URL if it is pointing somewhere unexpected.`
+              : err instanceof Anthropic.APIError
+                ? `API error ${err.status ?? '(no status)'}: ${err.message}`
+                : err instanceof Error
+                  ? err.message
+                  : 'Unknown error'
     console.error('[pulse] review failed:', message)
     send({ type: 'error', message })
   } finally {

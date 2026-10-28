@@ -82,6 +82,9 @@ export interface ReviewSection {
 const metricsFor = (signals: Signal[]): string[] =>
   signals.flatMap((s) => s.metrics ?? [])
 
+/** Lowercases only the first letter, so acronyms like GA and AI survive. */
+const lowerFirst = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1)
+
 const joinList = (items: string[]): string =>
   items.length <= 1
     ? items.join('')
@@ -117,17 +120,16 @@ function goalSection(goal: Goal, signals: Signal[], insights: RambleInsight[]): 
   const parts: string[] = []
 
   if (lead) {
-    parts.push(
-      `**${goal.title}** — target was ${goal.target.toLowerCase()}. ${lead.detail}`,
-    )
+    parts.push(`Target was ${goal.target}. ${lead.detail}`)
   } else {
     parts.push(
-      `**${goal.title}** — target was ${goal.target.toLowerCase()}. Evidence for this goal is thin in the systems of record; worth talking through in the review conversation.`,
+      `Target was ${goal.target}. Evidence for this goal is thin in the systems of record; worth talking through in the review conversation.`,
     )
   }
 
+  // Bold the strongest number — it is the claim the reader should carry away.
   if (metrics.length) {
-    parts.push(`The numbers: ${joinList(metrics)}.`)
+    parts.push(`The numbers: ${joinList([`**${metrics[0]}**`, ...metrics.slice(1)])}.`)
   }
 
   if (mine.length > 1) {
@@ -216,7 +218,7 @@ export function composeReview(
     heading: 'Looking ahead',
     body: [
       atRisk.length
-        ? `Front-load ${atRisk[0].title.toLowerCase()} rather than fitting it around delivery work — the pattern this year was that it got squeezed, not skipped.`
+        ? `Front-load ${lowerFirst(atRisk[0].title)} rather than fitting it around delivery work — the pattern this year was that it got squeezed, not skipped.`
         : 'Carry the delivery cadence forward and pick up a larger architectural bet.',
       'Keep the mentorship load where it is; it produced the clearest second-order results of the year.',
     ].join('\n\n'),

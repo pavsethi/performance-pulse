@@ -50,12 +50,12 @@ export interface SourceMeta {
 }
 
 export const SOURCES: SourceMeta[] = [
-  { id: 'ado-pbi', label: 'Work Items', system: 'Azure DevOps', icon: '◆', accent: '#5b8def' },
-  { id: 'ado-pr', label: 'Pull Requests', system: 'Azure DevOps', icon: '⑂', accent: '#8b5cf6' },
-  { id: 'commit', label: 'Commits', system: 'Azure Repos', icon: '●', accent: '#2dd4bf' },
-  { id: 'teams', label: 'Conversations', system: 'Microsoft Teams', icon: '◇', accent: '#f59e0b' },
-  { id: 'glint', label: 'Recognition', system: 'Viva Glint', icon: '★', accent: '#f472b6' },
-  { id: 'ramble', label: 'Your Voice', system: 'Pulse Recorder', icon: '◉', accent: '#34d399' },
+  { id: 'ado-pbi', label: 'Work items', system: 'Azure DevOps', icon: '◆', accent: '#3b6fb6' },
+  { id: 'ado-pr', label: 'Pull requests', system: 'Azure DevOps', icon: '⑂', accent: '#6d4aa8' },
+  { id: 'commit', label: 'Commits', system: 'Azure Repos', icon: '●', accent: '#1f5f5b' },
+  { id: 'teams', label: 'Conversations', system: 'Microsoft Teams', icon: '◇', accent: '#b4762a' },
+  { id: 'glint', label: 'Recognition', system: 'Viva Glint', icon: '★', accent: '#a3384f' },
+  { id: 'ramble', label: 'Your own words', system: 'Pulse recorder', icon: '◉', accent: '#2f7d4f' },
 ]
 
 export const sourceMeta = (id: SourceId): SourceMeta =>

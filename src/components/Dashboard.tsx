@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { SUB_AGENTS } from '../agents/agents'
 import { GOALS } from '../data/mock'
 import { SOURCES, sourceMeta } from '../data/types'
 import type { Signal, SourceId } from '../data/types'
@@ -12,188 +11,178 @@ export interface AgentState {
 
 interface Props {
   signals: Signal[]
-  agentStates: Record<string, AgentState>
   harvesting: boolean
   onResync: () => void
 }
 
-export default function Dashboard({ signals, agentStates, harvesting, onResync }: Props) {
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+const niceDate = (iso: string) => {
+  const [, m, d] = iso.split('-')
+  return `${MONTHS[Number(m) - 1]} ${Number(d)}`
+}
+
+const STATUS_WORD: Record<string, string> = {
+  exceeded: 'Exceeded',
+  'on-track': 'On track',
+  'at-risk': 'Behind',
+}
+
+export default function Dashboard({ signals, harvesting, onResync }: Props) {
   const [filter, setFilter] = useState<SourceId | 'all'>('all')
 
-  const stats = useMemo(() => {
+  const figures = useMemo(() => {
     const prs = signals.filter((s) => s.source === 'ado-pr').length
     const kudos = signals.filter((s) => s.source === 'glint').length
-    const covered = GOALS.filter((g) =>
-      signals.some((s) => s.goalIds.includes(g.id)),
-    ).length
+    const covered = GOALS.filter((g) => signals.some((s) => s.goalIds.includes(g.id))).length
     return { total: signals.length, prs, kudos, covered }
   }, [signals])
 
-  const feed = useMemo(() => {
+  const entries = useMemo(() => {
     const list = filter === 'all' ? signals : signals.filter((s) => s.source === filter)
     return [...list].sort((a, b) => b.date.localeCompare(a.date))
   }, [signals, filter])
 
+  const busiest = useMemo(
+    () =>
+      Math.max(
+        0,
+        ...GOALS.map((g) => signals.filter((s) => s.goalIds.includes(g.id)).length),
+      ),
+    [signals],
+  )
+
+  const visibleSources = SOURCES.filter(
+    (s) => s.id !== 'ramble' || signals.some((x) => x.source === 'ramble'),
+  )
+
   return (
     <>
-      <div className="stats">
-        <div className="stat">
-          <div className="n">{stats.total}</div>
-          <div className="l">Signals captured</div>
+      <div className="figures">
+        <div className="figure">
+          <div className="v">{figures.total}</div>
+          <div className="k">Pieces of evidence</div>
         </div>
-        <div className="stat">
-          <div className="n">
-            {stats.covered}/{GOALS.length}
+        <div className="figure">
+          <div className="v">
+            {figures.covered} of {GOALS.length}
           </div>
-          <div className="l">Goals with evidence</div>
+          <div className="k">Goals with evidence</div>
         </div>
-        <div className="stat">
-          <div className="n">{stats.prs}</div>
-          <div className="l">PR milestones</div>
+        <div className="figure">
+          <div className="v">{figures.prs}</div>
+          <div className="k">Pull request milestones</div>
         </div>
-        <div className="stat">
-          <div className="n">{stats.kudos}</div>
-          <div className="l">Recognitions</div>
+        <div className="figure">
+          <div className="v">{figures.kudos}</div>
+          <div className="k">Times someone thanked you</div>
         </div>
       </div>
 
-      <div className="grid">
-        <div className="card">
-          <div className="card-head">
-            <h2>Evidence timeline</h2>
-            <span>{feed.length} items · FY26</span>
-          </div>
-
-          <div className="filters">
-            <button
-              className="chip"
-              aria-pressed={filter === 'all'}
-              onClick={() => setFilter('all')}
-            >
-              All sources
-            </button>
-            {SOURCES.filter(
-              (s) => s.id !== 'ramble' || signals.some((x) => x.source === 'ramble'),
-            ).map((s) => (
-              <button
-                key={s.id}
-                className="chip"
-                aria-pressed={filter === s.id}
-                onClick={() => setFilter(s.id)}
-              >
-                {s.icon} {s.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="feed">
-            {feed.length === 0 && (
-              <p style={{ color: 'var(--dim)', fontSize: 13 }}>
-                Nothing here yet — the sub-agents are still working.
-              </p>
-            )}
-            {feed.map((s) => {
-              const meta = sourceMeta(s.source)
-              return (
-                <div className="sig" key={s.id}>
-                  <div
-                    className="sig-icon"
-                    style={{ color: meta.accent, borderColor: `${meta.accent}44` }}
-                  >
-                    {meta.icon}
+      <div className="block">
+        <div className="block-head">
+          <h2>Goals</h2>
+          <span className="sub">From Workday, at the start of the cycle</span>
+        </div>
+        <div className="panel">
+          {GOALS.map((g) => {
+            const hits = signals.filter((s) => s.goalIds.includes(g.id))
+            // Relative to the best-covered goal, so the bars actually compare.
+            const pct = busiest ? Math.round((hits.length / busiest) * 100) : 0
+            return (
+              <div className="goal-row" key={g.id}>
+                <div>
+                  <div className="goal-name">{g.title}</div>
+                  <div className="goal-target">{g.target}</div>
+                </div>
+                <div>
+                  <div className="meter">
+                    <i
+                      style={{
+                        width: `${pct}%`,
+                        background: g.status === 'at-risk' ? 'var(--amber)' : undefined,
+                      }}
+                    />
                   </div>
-                  <div>
-                    <div className="sig-title">{s.title}</div>
-                    <div className="sig-detail">{s.detail}</div>
-                    <div className="sig-meta">
-                      <span>{s.date}</span>
-                      <span>·</span>
-                      <span>{meta.system}</span>
-                      {s.goalIds.map((g) => (
-                        <span className="tag" key={g}>
-                          {g}
-                        </span>
-                      ))}
-                      {(s.metrics ?? []).map((m) => (
-                        <span className="metric" key={m}>
-                          {m}
-                        </span>
-                      ))}
-                    </div>
+                  <div className="meter-k">
+                    {hits.length} {hits.length === 1 ? 'item' : 'items'} of evidence
                   </div>
                 </div>
-              )
-            })}
+                <span className={`status ${g.status}`}>{STATUS_WORD[g.status]}</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="block">
+        <div className="block-head">
+          <h2>Evidence</h2>
+          <div className="btn-row">
+            <span className="sub">{entries.length} entries</span>
+            <button className="btn" onClick={onResync} disabled={harvesting}>
+              {harvesting ? 'Syncing' : 'Sync again'}
+            </button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div className="card">
-            <div className="card-head">
-              <h2>Sub-agents</h2>
-              <button className="btn" onClick={onResync} disabled={harvesting}>
-                {harvesting ? 'Syncing…' : 'Re-sync'}
-              </button>
-            </div>
-            <div className="agents">
-              {SUB_AGENTS.map((a) => {
-                const st = agentStates[a.id] ?? { status: 'idle', logs: [], count: 0 }
-                return (
-                  <div className={`agent ${st.status}`} key={a.id}>
-                    <div className="agent-top">
-                      {st.status === 'running' && <div className="spinner" />}
-                      {st.status === 'idle' && <div className="idle-dot" />}
-                      {st.status === 'done' && <span className="check">✓</span>}
-                      <div>
-                        <div className="agent-name">{a.name}</div>
-                        <div className="agent-role">{a.role}</div>
-                      </div>
-                      {st.status === 'done' && a.sources.length > 0 && (
-                        <div className="agent-count">+{st.count}</div>
-                      )}
-                    </div>
-                    {st.logs.length > 0 && st.status !== 'done' && (
-                      <div className="agent-log">
-                        {st.logs.slice(-3).map((l, i) => (
-                          <div key={i}>› {l}</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+        <div className="filters">
+          <button
+            className="filter"
+            aria-pressed={filter === 'all'}
+            onClick={() => setFilter('all')}
+          >
+            Everything
+          </button>
+          {visibleSources.map((s) => (
+            <button
+              key={s.id}
+              className="filter"
+              aria-pressed={filter === s.id}
+              onClick={() => setFilter(s.id)}
+            >
+              <span className="swatch" style={{ background: s.accent }} />
+              {s.label}
+            </button>
+          ))}
+        </div>
 
-          <div className="card">
-            <div className="card-head">
-              <h2>Workday goals</h2>
-              <span>FY26</span>
+        <div className="panel">
+          {entries.length === 0 && (
+            <div className="panel-pad empty-note">
+              {harvesting
+                ? 'Collecting from your connected sources.'
+                : 'Nothing matches that filter yet.'}
             </div>
-            {GOALS.map((g) => {
-              const hits = signals.filter((s) => s.goalIds.includes(g.id))
-              const pct = Math.min(100, Math.round((hits.length / 5) * 100))
-              return (
-                <div className="goal" key={g.id}>
-                  <div className="goal-top">
-                    <span className="goal-id">{g.id}</span>
-                    <span className="goal-title">{g.title}</span>
-                    <span className={`pill ${g.status}`}>{g.status.replace('-', ' ')}</span>
-                  </div>
-                  <div className="goal-desc">{g.target}</div>
-                  <div className="bar">
-                    <i style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="bar-label">
-                    <span>{g.category}</span>
-                    <span>
-                      {hits.length} piece{hits.length === 1 ? '' : 's'} of evidence
-                    </span>
+          )}
+          {entries.map((s) => {
+            const meta = sourceMeta(s.source)
+            return (
+              <article className="entry" key={s.id}>
+                <div className="entry-when">
+                  <span className="swatch" style={{ background: meta.accent }} />
+                  {niceDate(s.date)}
+                </div>
+                <div>
+                  <h3 className="entry-title">{s.title}</h3>
+                  <p className="entry-body">{s.detail}</p>
+                  <div className="entry-foot">
+                    <span className="src">{s.from ?? meta.system}</span>
+                    {s.goalIds.map((g) => (
+                      <span className="goal-ref" key={g}>
+                        {g}
+                      </span>
+                    ))}
+                    {(s.metrics ?? []).map((m) => (
+                      <span className="figure-chip" key={m}>
+                        {m}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              )
-            })}
-          </div>
+              </article>
+            )
+          })}
         </div>
       </div>
     </>

@@ -10,6 +10,12 @@ import type { Signal } from './data/types'
 
 type Tab = 'pulse' | 'ramble' | 'review'
 
+const TABS: { id: Tab; label: string; blurb: string }[] = [
+  { id: 'pulse', label: 'Your record', blurb: 'Everything collected across the year, mapped to your goals.' },
+  { id: 'ramble', label: 'Talk it through', blurb: 'The only source that knows why any of it mattered.' },
+  { id: 'review', label: 'Write the review', blurb: 'A draft built from the record, with every claim traceable.' },
+]
+
 const blankAgents = (): Record<string, AgentState> =>
   Object.fromEntries(
     SUB_AGENTS.map((a) => [a.id, { status: 'idle' as const, logs: [], count: 0 }]),
@@ -60,83 +66,106 @@ export default function App() {
   const spoken = useMemo(() => rambleSignals(mineRamble(transcript)), [transcript])
   const allSignals = useMemo(() => [...harvested, ...spoken], [harvested, spoken])
 
-  const goToReview = () => {
-    setAutoWrite(true)
-    setTab('review')
-  }
+  const active = TABS.find((t) => t.id === tab)!
 
   return (
-    <div className="app">
-      <header className="masthead">
-        <div className="brand">
-          <div className="brand-mark">◆</div>
+    <div className="shell">
+      <aside className="rail">
+        <div className="rail-brand">
+          <div className="glyph">P</div>
           <div>
-            <h1>Performance Pulse</h1>
-            <p>Your year, collected as it happens — so the review writes itself.</p>
+            <b>Performance Pulse</b>
+            <span>FY26 cycle</span>
           </div>
         </div>
-        <div className="whoami">
-          <strong>{REVIEWEE.name}</strong>
-          {REVIEWEE.title} · {REVIEWEE.team}
-          <br />
-          {REVIEWEE.cycle} · Manager: {REVIEWEE.manager}
+
+        <nav className="rail-nav">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              className="nav-item"
+              aria-current={tab === t.id}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+              {t.id === 'pulse' && (
+                <span className="tick">{harvesting ? 'syncing' : allSignals.length}</span>
+              )}
+              {t.id === 'ramble' && spoken.length > 0 && (
+                <span className="tick">{spoken.length}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="rail-section">
+          <h3>Connected sources</h3>
+          {SUB_AGENTS.map((a) => {
+            const st = agentStates[a.id] ?? { status: 'idle', logs: [], count: 0 }
+            return (
+              <div className="conn" key={a.id}>
+                <div className="conn-row">
+                  {st.status === 'running' && <div className="spinner" />}
+                  {st.status === 'idle' && <div className="dot-idle" />}
+                  {st.status === 'done' && <div className="dot-ok" />}
+                  <span className="conn-name">{a.name}</span>
+                  {st.status === 'done' && a.sources.length > 0 && (
+                    <span className="conn-n">{st.count}</span>
+                  )}
+                </div>
+                {st.status === 'running' && st.logs.length > 0 && (
+                  <div className="conn-log">{st.logs[st.logs.length - 1]}</div>
+                )}
+              </div>
+            )
+          })}
         </div>
-      </header>
+      </aside>
 
-      <nav className="tabs" role="tablist">
-        <button
-          className="tab"
-          role="tab"
-          aria-selected={tab === 'pulse'}
-          onClick={() => setTab('pulse')}
-        >
-          Pulse
-          {harvesting && <span className="dot" />}
-        </button>
-        <button
-          className="tab"
-          role="tab"
-          aria-selected={tab === 'ramble'}
-          onClick={() => setTab('ramble')}
-        >
-          Ramble
-          {spoken.length > 0 && <span className="dot" />}
-        </button>
-        <button
-          className="tab"
-          role="tab"
-          aria-selected={tab === 'review'}
-          onClick={() => setTab('review')}
-        >
-          Write the review
-        </button>
-      </nav>
+      <main className="main">
+        <header className="topbar">
+          <div>
+            <h1>{active.label}</h1>
+            <p>{active.blurb}</p>
+          </div>
+          <div className="who">
+            <b>{REVIEWEE.name}</b>
+            {REVIEWEE.title}, {REVIEWEE.team}
+            <br />
+            Reviewed by {REVIEWEE.manager}
+          </div>
+        </header>
 
-      {tab === 'pulse' && (
-        <Dashboard
-          signals={allSignals}
-          agentStates={agentStates}
-          harvesting={harvesting}
-          onResync={() => void sync()}
-        />
-      )}
+        <div className="content">
+          {tab === 'pulse' && (
+            <Dashboard
+              signals={allSignals}
+              harvesting={harvesting}
+              onResync={() => void sync()}
+            />
+          )}
 
-      {tab === 'ramble' && (
-        <Ramble
-          transcript={transcript}
-          setTranscript={setTranscript}
-          onWriteReview={goToReview}
-        />
-      )}
+          {tab === 'ramble' && (
+            <Ramble
+              transcript={transcript}
+              setTranscript={setTranscript}
+              onWriteReview={() => {
+                setAutoWrite(true)
+                setTab('review')
+              }}
+            />
+          )}
 
-      {tab === 'review' && (
-        <ReviewView
-          signals={allSignals}
-          transcript={transcript}
-          autoStart={autoWrite}
-          onConsumedAutoStart={() => setAutoWrite(false)}
-        />
-      )}
+          {tab === 'review' && (
+            <ReviewView
+              signals={allSignals}
+              transcript={transcript}
+              autoStart={autoWrite}
+              onConsumedAutoStart={() => setAutoWrite(false)}
+            />
+          )}
+        </div>
+      </main>
     </div>
   )
 }

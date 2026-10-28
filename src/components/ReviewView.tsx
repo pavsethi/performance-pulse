@@ -31,10 +31,10 @@ function RichText({ text }: { text: string }) {
 }
 
 const TEMPLATE_STAGES = [
-  'Goal Tracker → loading FY26 goals from Workday',
-  'Narrative Writer → clustering evidence by goal',
-  'Narrative Writer → ranking outcomes by impact',
-  'Narrative Writer → folding in your spoken transcript',
+  'Loading your FY26 goals from Workday',
+  'Grouping the evidence by goal',
+  'Ranking outcomes by impact',
+  'Folding in what you said out loud',
 ]
 
 export default function ReviewView({
@@ -114,7 +114,7 @@ export default function ReviewView({
     if (!status?.enabled) {
       runTemplate(
         status
-          ? 'No ANTHROPIC_API_KEY on the dev server — drafted locally from the evidence instead.'
+          ? 'No API key on the dev server, so this draft was built locally from the evidence.'
           : undefined,
       )
       return
@@ -129,11 +129,7 @@ export default function ReviewView({
       signals,
       transcript,
       {
-        onThinking: (t) =>
-          setThoughts((prev) => {
-            const joined = prev.join('') + t
-            return [joined]
-          }),
+        onThinking: (t) => setThoughts((prev) => [prev.join('') + t]),
         onText: (t) => {
           if (!sawText) {
             sawText = true
@@ -143,14 +139,14 @@ export default function ReviewView({
         },
         onDone: (info) => {
           setPhase('done')
-          setUsage(`${info.model} · ${info.usage.output.toLocaleString()} output tokens`)
+          setUsage(`${info.usage.output.toLocaleString()} tokens written`)
         },
         onError: (message) => {
           if (sawText) {
             setPhase('error')
             setNote(message)
           } else {
-            runTemplate(`Claude call failed (${message}) — drafted locally instead.`)
+            runTemplate(`Claude could not be reached (${message}), so this draft was built locally.`)
           }
         },
       },
@@ -173,11 +169,8 @@ export default function ReviewView({
   }
 
   const working = phase === 'thinking' || phase === 'writing'
-  const byline = status?.enabled
-    ? `Narrative Writer · ${status.model} · effort ${status.effort}`
-    : 'Narrative Writer · local template mode'
+  const writerName = status?.enabled ? status.model : 'Local draft writer'
 
-  // Show the most recent slice of the model's reasoning.
   const thinkingTail = thoughts
     .join(' ')
     .split(/(?<=[.!?])\s+/)
@@ -186,41 +179,40 @@ export default function ReviewView({
 
   if (!draft) {
     return (
-      <div className="card">
-        <div className="empty">
+      <div className="panel">
+        <div className="start">
           <h2>Your review is already written. You just have to ask.</h2>
           <p>
-            {signals.length} pieces of evidence collected across Azure DevOps, Azure
-            Repos, Teams and Glint
+            {signals.length} pieces of evidence from Azure DevOps, Azure Repos, Teams and
+            Glint
             {insights.length > 0
-              ? `, plus ${insights.length} statements from your own recording`
+              ? `, plus ${insights.length} things you said in your own words`
               : ''}
-            . {status?.enabled
-              ? `${status.model} writes the draft and every claim stays traceable to a signal.`
-              : 'The narrative writer maps every claim back to a Workday goal.'}
+            .{' '}
+            {status?.enabled
+              ? `${status.model} writes the draft, and every claim stays traceable to a source.`
+              : 'Every claim stays traceable back to a source.'}
           </p>
+
           <button className="btn primary" onClick={generate} disabled={working || !status}>
-            {working ? 'Writing…' : 'Write my performance review'}
+            {working ? 'Writing' : 'Write my review'}
           </button>
 
           {status && !status.enabled && phase === 'idle' && (
-            <div className="note" style={{ maxWidth: 520, margin: '20px auto 0' }}>
-              No <code>ANTHROPIC_API_KEY</code> found. Add one to <code>.env</code> and
-              restart the dev server to have Claude write it; otherwise the local
-              template writer runs.
+            <div className="hint" style={{ maxWidth: 480, margin: '22px auto 0' }}>
+              No <code>ANTHROPIC_API_KEY</code> on the dev server. Add one to{' '}
+              <code>.env</code> and restart to have Claude write the review. Until then the
+              local writer builds the draft from the same evidence.
             </div>
           )}
 
           {working && (
-            <div
-              className="agent-log"
-              style={{ marginTop: 22, maxHeight: 'none', textAlign: 'left' }}
-            >
-              <div style={{ color: 'var(--accent)' }}>› {byline}</div>
+            <div className="worklog">
+              <div className="lead">{writerName}</div>
               {(status?.enabled ? thinkingTail : thoughts).map((t, i) => (
-                <div key={i}>› {t}</div>
+                <div key={i}>{t}</div>
               ))}
-              {status?.enabled && thinkingTail.length === 0 && <div>› thinking…</div>}
+              {status?.enabled && thinkingTail.length === 0 && <div>Reading the record…</div>}
             </div>
           )}
         </div>
@@ -229,28 +221,29 @@ export default function ReviewView({
   }
 
   return (
-    <div className="card">
-      <div className="card-head">
-        <h2>
-          {REVIEWEE.cycle} — {working ? 'writing…' : 'draft ready'}
-        </h2>
+    <div className="panel">
+      <div className="bar">
+        <h2>{REVIEWEE.cycle}</h2>
         <div className="btn-row">
           <button className="btn" onClick={copy} disabled={working}>
-            {copied ? 'Copied ✓' : 'Copy markdown'}
+            {copied ? 'Copied' : 'Copy for Workday'}
           </button>
           <button className="btn" onClick={generate} disabled={working}>
-            Regenerate
+            Write it again
           </button>
         </div>
       </div>
 
-      <div className="note" style={{ marginTop: 0, marginBottom: 18 }}>
-        {byline}
-        {usage ? ` · ${usage}` : ''}
-        {note ? ` — ${note}` : ''}
+      <div className="byline">
+        {status?.enabled && <span className="live-pill">{status.model}</span>}
+        <span>
+          {working ? 'Writing now' : 'Draft ready'}
+          {usage ? `, ${usage}` : ''}
+          {note ? ` — ${note}` : ''}
+        </span>
       </div>
 
-      <div className="review">
+      <div className="doc">
         {sections.map((s, i) => (
           <section key={i}>
             <h3>{s.heading}</h3>
@@ -263,9 +256,7 @@ export default function ReviewView({
                 </p>
               ))}
             {s.evidence.length > 0 && (
-              <div className="ev">
-                evidence: {s.evidence.length} signal(s) — {s.evidence.join(', ')}
-              </div>
+              <div className="cite">drawn from {s.evidence.join(', ')}</div>
             )}
           </section>
         ))}

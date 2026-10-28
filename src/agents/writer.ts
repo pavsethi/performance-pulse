@@ -226,9 +226,19 @@ export function composeReview(
   return sections
 }
 
-/** Flattens the structured review to plain markdown for copy/paste into Workday. */
+/**
+ * Flattens to the same markdown shape the Claude writer emits, so both paths
+ * render and copy identically.
+ */
 export function reviewToMarkdown(sections: ReviewSection[]): string {
   return sections
-    .map((s) => `## ${s.heading}\n\n${s.body}`)
+    .map((s) =>
+      [
+        `## ${s.heading}`,
+        '',
+        s.body,
+        ...(s.evidence.length ? ['', `_evidence: ${s.evidence.join(', ')}_`] : []),
+      ].join('\n'),
+    )
     .join('\n\n')
 }

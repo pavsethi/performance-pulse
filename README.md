@@ -45,6 +45,31 @@ npm install && npm run dev
 
 Then open http://localhost:5173.
 
+### Letting Claude write it
+
+Without a key the app drafts locally from a template and says so in the byline.
+To have Claude write the review instead:
+
+```bash
+cp .env.example .env   # then add your key
+npm run check:claude   # confirms the key works before you need it
+npm run dev
+```
+
+The key is read by the Vite dev server and the model call runs in Node, so it
+never enters the client bundle — the browser only talks to `/api/review`, which
+streams the draft back over SSE. `.env` is gitignored.
+
+Model defaults to `claude-opus-5-5` at `high` effort; override with
+`PULSE_MODEL` / `PULSE_EFFORT`. Thinking summaries stream into the status
+console while it works, then the draft streams in underneath.
+
+The prompt ([`server/prompt.ts`](server/prompt.ts)) hands Claude the goals, the
+full evidence record and the transcript, and requires that every claim be
+traceable — each section ends with the signal ids it drew on, rendered as a
+footnote. If the call fails for any reason, the app falls back to the local
+template writer and tells you why rather than dying on stage.
+
 - **Pulse** — the live evidence timeline, the sub-agents working, goal coverage
 - **Ramble** — record or paste; watch statements get mapped to goals in real time
 - **Write the review** — streams a goal-by-goal draft, copyable as markdown
